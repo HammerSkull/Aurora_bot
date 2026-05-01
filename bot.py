@@ -63,6 +63,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             'writethumbnail': True,
             'quiet': True,
             'no_warnings': True,
+            'cookiefile': 'youtube.com_cookies.txt',
             'postprocessors': [
                 {'key': 'FFmpegExtractAudio', 'preferredcodec': tipo, 'preferredquality': calidad} if tipo != 'vid' else {'key': 'FFmpegVideoConvertor', 'preferedformat': 'mp4'},
                 {'key': 'EmbedThumbnail'},
