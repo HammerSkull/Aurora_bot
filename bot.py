@@ -57,13 +57,13 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         extension = 'mp4' if tipo == 'vid' else tipo
         file_final = f"{file_base}.{extension}"
         
+        # CONFIGURACIÓN CORREGIDA: Pide el mejor audio y luego FFmpeg lo transforma a la fuerza.
         ydl_opts = {
-            'format': 'bestaudio/best' if tipo != 'vid' else 'bestvideo+bestaudio/best',
+            'format': 'bestaudio/best' if tipo != 'vid' else 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
             'outtmpl': file_base,
             'writethumbnail': True,
             'quiet': True,
             'no_warnings': True,
-            'cookiefile': 'youtube.com_cookies.txt',
             'postprocessors': [
                 {'key': 'FFmpegExtractAudio', 'preferredcodec': tipo, 'preferredquality': calidad} if tipo != 'vid' else {'key': 'FFmpegVideoConvertor', 'preferedformat': 'mp4'},
                 {'key': 'EmbedThumbnail'},
@@ -73,6 +73,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                # CORRECCIÓN VITAL: Generamos el link estándar, no el de googleusercontent.
                 url_yt = f"https://www.youtube.com/watch?v={video_id}"
                 info = await asyncio.to_thread(ydl.extract_info, url_yt, download=True)
                 titulo = info.get('title', 'Audio')
@@ -94,20 +95,38 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await proceso_msg.delete()
                 os.remove(file_final)
             else:
-                await proceso_msg.edit_text("❌ Error: El archivo no se generó.")
+                await proceso_msg.edit_text("❌ Error: El archivo no se generó. El formato podría estar bloqueado.")
             
         except Exception as e:
             await proceso_msg.edit_text(f"❌ Error en la descarga. Revisa el log de Render.")
-            print(f"ERROR: {e}")
+            print(f"ERROR EN DL_: {e}")
 
 async def search_and_suggest(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_input = update.message.text
-    status_msg = await update.message.reply_text(f"🔍 Buscando en YouTube: *{user_input}*...")
+    status_msg = await update.message.reply_text(f"🔍 Analizando: *{user_input}*...")
 
+    # CORRECCIÓN PARA ENLACES DIRECTOS: Si detecta una URL de YouTube o Music, extrae el ID directamente.
+    if "youtube.com" in user_input or "youtu.be" in user_input:
+        ydl_opts_link = {'quiet': True, 'extract_flat': True}
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts_link) as ydl:
+                info = await asyncio.to_thread(ydl.extract_info, user_input, download=False)
+                video_id = info.get('id')
+                title = info.get('title', 'Video detectado')
+                keyboard = [[InlineKeyboardButton(f"📥 Descargar: {title[:30]}", callback_data=f"dl_{video_id}")]]
+                
+                await status_msg.delete()
+                await update.message.reply_text("✅ Enlace detectado. Listo para extraer:", reply_markup=InlineKeyboardMarkup(keyboard))
+                return
+        except Exception as e:
+            await status_msg.edit_text("❌ Error al procesar el enlace directo.")
+            print(f"ERROR ENLACE: {e}")
+            return
+
+    # Si es solo texto, ejecuta la búsqueda de 10 resultados.
     ydl_opts = {'format': 'bestaudio/best', 'quiet': True, 'extract_flat': True}
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            # Búsqueda de tus 10 resultados
             info = await asyncio.to_thread(ydl.extract_info, f"ytsearch10:{user_input}", download=False)
             if 'entries' in info:
                 keyboard = []
@@ -117,11 +136,11 @@ async def search_and_suggest(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 
                 await status_msg.delete()
                 await update.message.reply_text(f"Resultados para: *{user_input}*", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
-    except Exception:
+    except Exception as e:
         await status_msg.edit_text("❌ No encontré resultados.")
+        print(f"ERROR BÚSQUEDA: {e}")
 
 def main():
-    # SIN PROXY - CONEXIÓN DIRECTA EN RENDER
     application = Application.builder().token(TOKEN).build()
     
     application.add_handler(CommandHandler("start", start))
