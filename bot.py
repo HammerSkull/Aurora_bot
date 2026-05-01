@@ -57,13 +57,14 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         extension = 'mp4' if tipo == 'vid' else tipo
         file_final = f"{file_base}.{extension}"
         
-        # CONFIGURACIÓN CORREGIDA: Pide el mejor audio y luego FFmpeg lo transforma a la fuerza.
+        # CONFIGURACIÓN CON TU ARCHIVO EXACTO DE COOKIES
         ydl_opts = {
             'format': 'bestaudio/best' if tipo != 'vid' else 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
             'outtmpl': file_base,
             'writethumbnail': True,
             'quiet': True,
             'no_warnings': True,
+            'cookiefile': 'youtube_cookies.txt',  # <-- AQUÍ ESTÁ CORREGIDO
             'postprocessors': [
                 {'key': 'FFmpegExtractAudio', 'preferredcodec': tipo, 'preferredquality': calidad} if tipo != 'vid' else {'key': 'FFmpegVideoConvertor', 'preferedformat': 'mp4'},
                 {'key': 'EmbedThumbnail'},
@@ -73,7 +74,6 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                # CORRECCIÓN VITAL: Generamos el link estándar, no el de googleusercontent.
                 url_yt = f"https://www.youtube.com/watch?v={video_id}"
                 info = await asyncio.to_thread(ydl.extract_info, url_yt, download=True)
                 titulo = info.get('title', 'Audio')
@@ -95,7 +95,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await proceso_msg.delete()
                 os.remove(file_final)
             else:
-                await proceso_msg.edit_text("❌ Error: El archivo no se generó. El formato podría estar bloqueado.")
+                await proceso_msg.edit_text("❌ Error: El archivo no se generó.")
             
         except Exception as e:
             await proceso_msg.edit_text(f"❌ Error en la descarga. Revisa el log de Render.")
@@ -105,9 +105,10 @@ async def search_and_suggest(update: Update, context: ContextTypes.DEFAULT_TYPE)
     user_input = update.message.text
     status_msg = await update.message.reply_text(f"🔍 Analizando: *{user_input}*...")
 
-    # CORRECCIÓN PARA ENLACES DIRECTOS: Si detecta una URL de YouTube o Music, extrae el ID directamente.
+    # CORRECCIÓN PARA ENLACES DIRECTOS
     if "youtube.com" in user_input or "youtu.be" in user_input:
-        ydl_opts_link = {'quiet': True, 'extract_flat': True}
+        # AÑADIMOS TU ARCHIVO DE COOKIES AQUÍ TAMBIÉN
+        ydl_opts_link = {'quiet': True, 'extract_flat': True, 'cookiefile': 'youtube_cookies.txt'}
         try:
             with yt_dlp.YoutubeDL(ydl_opts_link) as ydl:
                 info = await asyncio.to_thread(ydl.extract_info, user_input, download=False)
@@ -123,8 +124,8 @@ async def search_and_suggest(update: Update, context: ContextTypes.DEFAULT_TYPE)
             print(f"ERROR ENLACE: {e}")
             return
 
-    # Si es solo texto, ejecuta la búsqueda de 10 resultados.
-    ydl_opts = {'format': 'bestaudio/best', 'quiet': True, 'extract_flat': True}
+    # Si es solo texto, ejecuta la búsqueda. AÑADIMOS TU ARCHIVO DE COOKIES AQUÍ TAMBIÉN.
+    ydl_opts = {'format': 'bestaudio/best', 'quiet': True, 'extract_flat': True, 'cookiefile': 'youtube_cookies.txt'}
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = await asyncio.to_thread(ydl.extract_info, f"ytsearch10:{user_input}", download=False)
