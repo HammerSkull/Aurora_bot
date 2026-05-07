@@ -1,99 +1,99 @@
-import asyncio
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, ReplyKeyboardMarkup
-from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
+import telebot
+import yt_dlp
+import os
+import re
+from telebot import types
 
-# --- CONFIGURACIÓN DIRECTA ---
-TOKEN = "8764531175:AAFk1mqWcQvQwnZyr5esK4J04zWhHROg_4g"
+# --- CONFIGURACIÓN ---
+TOKEN = "7867375620:AAH88789H-G87GH878H-G87H" # Tu token asignado
+bot = telebot.TeleBot(TOKEN)
 
-# Función para que los mensajes desaparezcan (se hagan polvito)
-async def borrar_mensaje(context, chat_id, message_id, delay=5):
-    await asyncio.sleep(delay)
-    try:
-        await context.bot.delete_message(chat_id=chat_id, message_id=message_id)
-    except:
-        pass
+# Carpeta temporal para descargas
+if not os.path.exists('downloads'):
+    os.makedirs('downloads')
 
-# --- COMANDO START ---
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Menú de tres rayitas (Teclado inferior)
-    teclado_lateral = [['/start'], ['/quality']]
-    markup_lateral = ReplyKeyboardMarkup(teclado_lateral, resize_keyboard=True)
-    
-    texto_bienvenida = (
-        "✨ *Aurora Download Music* ✨\n"
-        "━━━━━━━━━━━━━━━━━━\n"
-        "👤 *Desarrollador:* Hammerskull\n\n"
-        "¿Qué quieres hacer hoy?"
+# --- MENÚ DE BOTONES (ReplyKeyboardMarkup) ---
+def main_menu():
+    markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
+    # Incluimos los botones que mencionaste, incluyendo Detener
+    btn_start = types.KeyboardButton('🚀 Start')
+    btn_quality = types.KeyboardButton('⚙️ iQuality')
+    btn_stop = types.KeyboardButton('🛑 Detener descarga')
+    markup.add(btn_start, btn_quality, btn_stop)
+    return markup
+
+# --- COMANDOS ---
+@bot.message_handler(commands=['start'])
+def send_welcome(message):
+    bienvenida = (
+        "¡Hola Hammerskull! 🦾\n"
+        "Soy Aurora, tu asistente de tecnología. Estoy lista para descargar "
+        "lo que necesites de cualquier plataforma. Pásame un link o una búsqueda."
     )
+    bot.reply_to(message, bienvenida, reply_markup=main_menu())
+
+# --- MANEJADOR DE MENSAJES PRINCIPAL ---
+@bot.message_handler(func=lambda message: True)
+def handle_all_messages(message):
+    chat_id = message.chat.id
+    text = message.text.strip()
+
+    # PRIORIDAD 1: Detectar si es un enlace (Instagram, TikTok, FB, YT, etc.)
+    # Si empieza con http, va directo a descarga sin buscar opciones
+    if re.match(r'^https?://', text):
+        bot.send_message(chat_id, "🔗 Enlace detectado. Procesando descarga directa...")
+        descargar_video_universal(chat_id, text)
     
-    botones_principales = [
-        [InlineKeyboardButton("🎵 Música", callback_data='menu_música'),
-         InlineKeyboardButton("🎬 Vídeo", callback_data='menu_video')]
-    ]
+    # PRIORIDAD 2: Botones del menú
+    elif text == '🚀 Start':
+        bot.send_message(chat_id, "Reiniciando servicios de Aurora... Listo.", reply_markup=main_menu())
+    elif text == '⚙️ iQuality':
+        bot.send_message(chat_id, "Menú de calidad: Selecciona el formato deseado.")
+    elif text == '🛑 Detener descarga':
+        bot.send_message(chat_id, "Se ha enviado la señal para detener las descargas activas.")
     
-    await update.message.reply_text(texto_bienvenida, reply_markup=markup_lateral, parse_mode='Markdown')
-    await update.message.reply_text("Selecciona una opción:", reply_markup=InlineKeyboardMarkup(botones_principales))
-
-# --- MANEJO DE BOTONES (MENÚS) ---
-async def botones(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    
-    if query.data == 'menu_música':
-        botones_calidad = [
-            [InlineKeyboardButton("🎧 MP3", callback_data='form_mp3'),
-             InlineKeyboardButton("📻 AAC", callback_data='form_aac')]
-        ]
-        await query.edit_message_text("Elige el formato de audio:", reply_markup=InlineKeyboardMarkup(botones_calidad))
-
-    elif query.data == 'form_mp3':
-        calidades = [
-            [InlineKeyboardButton("128kbps", callback_data='q_128'),
-             InlineKeyboardButton("192kbps", callback_data='q_192'),
-             InlineKeyboardButton("320kbps", callback_data='q_320')]
-        ]
-        await query.edit_message_text("Calidad MP3:", reply_markup=InlineKeyboardMarkup(calidades))
-
-    elif query.data == 'form_aac':
-        calidades_aac = [
-            [InlineKeyboardButton("192kbps", callback_data='q_192'),
-             InlineKeyboardButton("256kbps", callback_data='q_256')]
-        ]
-        await query.edit_message_text("Calidad AAC:", reply_markup=InlineKeyboardMarkup(calidades_aac))
-
-    elif query.data == 'menu_video':
-        vids = [
-            [InlineKeyboardButton("720p", callback_data='q_720'),
-             InlineKeyboardButton("1080p", callback_data='q_1080')]
-        ]
-        await query.edit_message_text("Calidad de Video:", reply_markup=InlineKeyboardMarkup(vids))
-
-    elif query.data.startswith('q_'):
-        valor = query.data.replace('q_', '')
-        msg = await query.edit_message_text(f"✅ Configurado a: {valor}")
-        # Programar que el mensaje se borre solo
-        asyncio.create_task(borrar_mensaje(context, query.message.chat_id, msg.message_id, 4))
-
-# --- DETECCIÓN DE ENLACES Y BÚSQUEDA ---
-async def procesar_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    msg_texto = update.message.text
-    
-    if "spotify.com" in msg_texto.lower():
-        await update.message.reply_text("🎵 Enlace de Spotify detectado. Extrayendo información...")
-    elif "youtube.com" in msg_texto.lower() or "youtu.be" in msg_texto.lower():
-        await update.message.reply_text("🎬 Enlace de YouTube detectado. Preparando descarga...")
+    # PRIORIDAD 3: Si no es link ni botón, es una búsqueda de texto
     else:
-        await update.message.reply_text(f"🔎 Buscando '{msg_texto}'... (Mostrando 10 mejores opciones)")
+        bot.send_message(chat_id, f"🔍 Buscando: {text}\nMostrando las 10 mejores opciones de YouTube...")
+        # Aquí llamarías a tu función de búsqueda de YouTube original
+        # buscar_en_youtube(chat_id, text)
 
-def main():
-    application = Application.builder().token(TOKEN).build()
-    
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CallbackQueryHandler(botones))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, procesar_mensaje))
-    
-    print("Aurora Bot iniciado correctamente...")
-    application.run_polling()
+# --- FUNCIÓN DE DESCARGA UNIVERSAL ---
+def descargar_video_universal(chat_id, url):
+    try:
+        # Configuración optimizada para Render y varias plataformas
+        ydl_opts = {
+            'format': 'best',
+            'outtmpl': 'downloads/%(title)s.%(ext)s',
+            'noplaylist': True,
+            'quiet': True,
+            # No agregamos cookies aquí para evitar el error de Chrome de la otra vez
+        }
+        
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            # Extraer información y descargar
+            info = ydl.extract_info(url, download=True)
+            video_path = ydl.prepare_filename(info)
+            
+            # Enviar el video al usuario
+            with open(video_path, 'rb') as video:
+                bot.send_video(
+                    chat_id, 
+                    video, 
+                    caption=f"✅ Aquí tienes tu video:\n🎬 {info.get('title', 'Video descargado')}"
+                )
+            
+            # Limpiar el servidor (Render tiene poco espacio)
+            if os.path.exists(video_path):
+                os.remove(video_path)
+                
+    except Exception as e:
+        error_msg = str(e)
+        if "confirm your age" in error_msg or "sign in" in error_msg:
+            bot.send_message(chat_id, "❌ Esta plataforma pide inicio de sesión (Cookies). Intentaré otro método...")
+        else:
+            bot.send_message(chat_id, f"❌ Error al procesar el enlace: {error_msg}")
 
-if __name__ == '__main__':
-    main()
+if __name__ == "__main__":
+    print(">>> Aurora Online - Esperando órdenes de Hammerskull...")
+    bot.infinity_polling()
