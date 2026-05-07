@@ -5,93 +5,112 @@ import re
 from telebot import types
 
 # --- CONFIGURACIÓN MAESTRA ---
+# Tu token oficial autorizado por BotFather
 TOKEN = "8764531175:AAFk1mqWcQvQwnZyr5esK4J04zWhHROg_4g" 
 bot = telebot.TeleBot(TOKEN)
 
-# Carpeta para archivos temporales
+# Carpeta de operaciones temporales
 if not os.path.exists('downloads'):
     os.makedirs('downloads')
 
-# --- COMANDO START ---
+# --- MENÚ DE MANDO (TECLADO PRINCIPAL) ---
+def main_menu():
+    markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
+    btn_start = types.KeyboardButton('🚀 Start')
+    btn_stop = types.KeyboardButton('🛑 Detener descarga')
+    markup.add(btn_start, btn_stop)
+    return markup
+
+# --- COMANDO DE ARRANQUE ---
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     bot.reply_to(
         message, 
-        "¡Sistemas reiniciados y al 100%! 🦾\nSoy Aurora. Pásame cualquier enlace (YouTube, Instagram, TikTok) y te desplegaré el panel de descargas, Hammerskull."
+        "¡Sistemas Aurora en línea, Hammerskull! 🦾\nPanel de control activado. Envíame un enlace de cualquier plataforma para iniciar la extracción.",
+        reply_markup=main_menu()
     )
 
-# --- DETECCIÓN DE ENLACES Y MENÚ DESPLEGABLE ---
+# --- DETECCIÓN DE ENLACES Y PANEL INTERACTIVO ---
 @bot.message_handler(func=lambda message: True)
 def handle_messages(message):
+    chat_id = message.chat.id
     text = message.text.strip()
 
+    # Si detectamos un link en cualquier parte del texto
     if re.search(r'https?://', text):
-        # Creamos los botones interactivos
+        # Creamos los botones que desaparecerán después de usarse
         markup = types.InlineKeyboardMarkup(row_width=1)
-        btn_alta = types.InlineKeyboardButton("🎬 Video (Alta Calidad)", callback_data="vid_alta")
-        btn_baja = types.InlineKeyboardButton("📱 Video (Calidad Estándar/Ligero)", callback_data="vid_baja")
-        btn_audio = types.InlineKeyboardButton("🎵 Solo Audio (Música)", callback_data="audio")
+        btn_alta = types.InlineKeyboardButton("🎬 Video (Máxima Calidad)", callback_data="vid_alta")
+        btn_baja = types.InlineKeyboardButton("📱 Video (Calidad Estándar)", callback_data="vid_baja")
+        btn_audio = types.InlineKeyboardButton("🎵 Solo Audio (MP3/M4A)", callback_data="audio")
         markup.add(btn_alta, btn_baja, btn_audio)
         
-        # Respondemos al mensaje original (esto es vital para que yo no pierda el link de vista)
-        bot.reply_to(message, "🔗 ¡Enlace asegurado! ¿En qué formato lo procesamos?", reply_markup=markup)
+        bot.reply_to(message, "🔗 Enlace detectado. Selecciona el formato de salida:", reply_markup=markup)
+    
+    # Comandos de texto del menú principal
+    elif text == '🚀 Start':
+        bot.send_message(chat_id, "Reiniciando protocolos de Aurora... Listo.", reply_markup=main_menu())
+    elif text == '🛑 Detener descarga':
+        bot.send_message(chat_id, "Se ha enviado la señal de interrupción.")
     else:
-        bot.send_message(message.chat.id, f"🔍 Me pides buscar: '{text}'\n(Sigo calibrando los motores de búsqueda directa, por favor envíame el enlace por ahora).")
+        bot.send_message(chat_id, f"🔍 Buscando: '{text}'... (Dame el link directo para procesarlo ahora mismo).")
 
-# --- MANEJADOR DE LOS BOTONES (AQUÍ ES DONDE DESAPARECEN) ---
+# --- MANEJADOR DE BOTONES INTERACTIVOS (DESAPARECEN AL TOCARLOS) ---
 @bot.callback_query_handler(func=lambda call: True)
 def callback_query(call):
     chat_id = call.message.chat.id
     message_id = call.message.message_id
     formato = call.data
     
-    # 1. Editamos el mensaje para borrar los botones y avisar que estamos trabajando
-    bot.edit_message_text("⚙️ Comprendido. Descargando y procesando tu selección...", chat_id, message_id)
+    # Editamos el mensaje para quitar los botones y evitar clics dobles
+    bot.edit_message_text("⚙️ Procesando solicitud... Conectando con los servidores de descarga.", chat_id, message_id)
     
-    # 2. Recuperamos el enlace desde el mensaje que tú enviaste originalmente
+    # Extraemos el link del mensaje al que respondimos
     if call.message.reply_to_message and call.message.reply_to_message.text:
         url = call.message.reply_to_message.text
         descargar_archivo(chat_id, url, formato)
     else:
-        bot.send_message(chat_id, "❌ Error: No logré rastrear el enlace original en la base de datos.")
+        bot.send_message(chat_id, "❌ Error táctico: No pude recuperar el enlace original.")
 
-# --- MOTOR DE DESCARGA AVANZADO CON COOKIES ---
+# --- MOTOR DE EXTRACCIÓN CON ESCUDOS MÓVILES ---
 def descargar_archivo(chat_id, url, formato):
     try:
-        # Configuraciones base y la LLAVE MAESTRA
+        # Configuración de los escudos y cookies
         ydl_opts = {
             'outtmpl': 'downloads/%(title)s.%(ext)s',
             'quiet': True,
             'noplaylist': True,
-            'cookiefile': 'cookies.txt',  # <-- LA EXTENSIÓN QUE GUARDASTE EN FIREFOX
+            'cookiefile': 'cookies.txt',  # Tu llave de Firefox
+            # ESTA LÍNEA ES EL ESCUDO CONTRA EL PO TOKEN DE YOUTUBE:
+            'extractor_args': {'youtube': ['client=android,ios']},
         }
         
-        # Ajustamos el motor según el botón que presionaste
+        # Selección de armamento según el botón presionado
         if formato == "vid_alta":
             ydl_opts['format'] = 'best'
         elif formato == "vid_baja":
             ydl_opts['format'] = 'worst'
         elif formato == "audio":
-            ydl_opts['format'] = 'm4a/bestaudio/best' # Extrae el mejor formato de audio nativo
+            ydl_opts['format'] = 'm4a/bestaudio/best'
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
             file_path = ydl.prepare_filename(info)
             
-            # Enviamos el archivo terminado
+            # Envío del material extraído
             with open(file_path, 'rb') as file:
                 if formato == "audio":
-                    bot.send_audio(chat_id, file, caption=f"✅ Operación exitosa:\n🎵 {info.get('title', 'Audio')}")
+                    bot.send_audio(chat_id, file, caption=f"✅ Extracción exitosa:\n🎵 {info.get('title', 'Audio')}")
                 else:
-                    bot.send_video(chat_id, file, caption=f"✅ Operación exitosa:\n🎬 {info.get('title', 'Video')}")
+                    bot.send_video(chat_id, file, caption=f"✅ Extracción exitosa:\n🎬 {info.get('title', 'Video')}")
             
-            # Limpieza inmediata de los servidores de Render
+            # Borrado para no saturar Render
             if os.path.exists(file_path):
                 os.remove(file_path)
                 
     except Exception as e:
-        bot.send_message(chat_id, f"❌ Rayos, hubo una falla en la extracción: {str(e)}")
+        bot.send_message(chat_id, f"❌ Fallo en la extracción: {str(e)}\n(Asegúrate de que tu cookies.txt esté actualizado).")
 
 if __name__ == "__main__":
-    print(">>> Aurora Online - Panel táctico interactivo cargado...")
+    print(">>> Aurora Pro Online - Esperando órdenes de Hammerskull...")
     bot.infinity_polling()
