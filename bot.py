@@ -11,7 +11,7 @@ bot = telebot.TeleBot(TOKEN)
 if not os.path.exists('downloads'):
     os.makedirs('downloads')
 
-# --- MENÚS ---
+# --- MENÚS (SIN MODIFICACIONES) ---
 def main_menu():
     markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
     btn_start = types.KeyboardButton('🚀 Start')
@@ -21,7 +21,7 @@ def main_menu():
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    bot.reply_to(message, "¡Aurora V5 Online! 🦾\nProtocolo de bypass activado. Pásame ese link rebelde.", reply_markup=main_menu())
+    bot.reply_to(message, "¡Aurora V6 Online! 🦾\nBlindaje de navegador activado. El último recurso contra YouTube.", reply_markup=main_menu())
 
 @bot.message_handler(func=lambda message: True)
 def handle_messages(message):
@@ -30,33 +30,32 @@ def handle_messages(message):
         btn_alta = types.InlineKeyboardButton("🎬 Video Alta", callback_data="vid_alta")
         btn_audio = types.InlineKeyboardButton("🎵 Solo Audio", callback_data="audio")
         markup.add(btn_alta, btn_audio)
-        bot.reply_to(message, "🔗 Link detectado. ¿Qué procedemos?", reply_markup=markup)
+        bot.reply_to(message, "🔗 Radar activo. ¿Formato de salida?", reply_markup=markup)
     elif message.text == '🚀 Start':
         bot.send_message(message.chat.id, "Sistemas listos.", reply_markup=main_menu())
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_query(call):
-    bot.edit_message_text("⚙️ Aplicando bypass de seguridad... Dame un momento.", call.message.chat.id, call.message.message_id)
+    bot.edit_message_text("⚙️ Aplicando camuflaje de navegador... Extrayendo.", call.message.chat.id, call.message.message_id)
     if call.message.reply_to_message:
         descargar_archivo(call.message.chat.id, call.message.reply_to_message.text, call.data)
 
-# --- MOTOR DE DESCARGA V5 (EL "ROMPEMUROS") ---
+# --- MOTOR V6: CAMUFLAJE DE NAVEGADOR ---
 def descargar_archivo(chat_id, url, formato):
     try:
         ydl_opts = {
             'outtmpl': 'downloads/%(title)s.%(ext)s',
             'quiet': True,
             'cookiefile': 'cookies.txt',
-            # CAMBIO TÁCTICO: Usamos el cliente 'tv' que es el que menos pide Token PO
-            'extractor_args': {
-                'youtube': {
-                    'player_client': ['tv', 'ios'],
-                    'player_skip': ['web', 'web_music', 'android']
-                }
+            # NUEVO ARMAMENTO: Imitación de Navegador Chrome Real
+            'http_headers': {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5',
+                'Sec-Fetch-Mode': 'navigate',
             },
+            'extractor_args': {'youtube': {'player_client': ['android', 'web']}},
             'nocheckcertificate': True,
-            'ignoreerrors': True,
-            'no_warnings': True
         }
         
         if formato == "vid_alta":
@@ -66,9 +65,8 @@ def descargar_archivo(chat_id, url, formato):
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
-            if not info: raise Exception("YouTube bloqueó la conexión.")
-            
             file_path = ydl.prepare_filename(info)
+            
             with open(file_path, 'rb') as f:
                 if formato == "audio":
                     bot.send_audio(chat_id, f, caption=f"✅ {info.get('title')}")
@@ -78,8 +76,7 @@ def descargar_archivo(chat_id, url, formato):
             if os.path.exists(file_path): os.remove(file_path)
                 
     except Exception as e:
-        bot.send_message(chat_id, f"❌ YouTube sigue bloqueando la IP de Render.\nError: {str(e)}")
+        bot.send_message(chat_id, f"❌ YouTube ha bloqueado este servidor de Render temporalmente.\nIntenta con otro link o espera 10 min.")
 
 if __name__ == "__main__":
-    print(">>> Aurora V5 Online - Hammerskull, vamos por ese bypass.")
     bot.infinity_polling()
