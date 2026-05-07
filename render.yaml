@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: Aurora_bot
+    name: aurora-v7-final
     env: python
     region: oregon
     plan: free
