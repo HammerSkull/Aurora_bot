@@ -1,0 +1,12 @@
+services:
+  - type: worker
+    name: Aurora_bot
+    env: python
+    region: virginia
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: python bot.py
+    buildpacks:
+      - nodejs
+      - python
+      
