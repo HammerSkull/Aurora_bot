@@ -1,4 +1,4 @@
--import telebot
+import telebot
 import yt_dlp
 import os
 import re
