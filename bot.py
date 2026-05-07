@@ -74,17 +74,17 @@ def callback_query(call):
     else:
         bot.send_message(chat_id, "❌ Error de rastreo: No se pudo localizar el enlace original en la memoria.")
 
-# --- MOTOR DE EXTRACCIÓN CON BLINDAJE MÓVIL ---
+# --- MOTOR DE EXTRACCIÓN CON BLINDAJE PESADO ---
 def descargar_archivo(chat_id, url, formato):
     try:
-        # Configuración de escudos, cookies y bypass de seguridad
+        # Configuración de escudos, cookies y bypass de seguridad extrema
         ydl_opts = {
             'outtmpl': 'downloads/%(title)s.%(ext)s',
             'quiet': True,
             'noplaylist': True,
             'cookiefile': 'cookies.txt',  
-            # AJUSTE TÁCTICO: Bypass del desafío n de YouTube
-            'extractor_args': {'youtube': ['player_client=ios,android']},
+            # AJUSTE TÁCTICO: Bloqueo total al cliente web para forzar interfaz móvil pura
+            'extractor_args': {'youtube': ['client=android,ios', 'player_client=android,ios']},
         }
         
         # Selección de armamento según el formato
@@ -93,7 +93,8 @@ def descargar_archivo(chat_id, url, formato):
         elif formato == "vid_baja":
             ydl_opts['format'] = 'worst'
         elif formato == "audio":
-            ydl_opts['format'] = 'm4a/bestaudio/best'
+            # Forzamos la extracción directa de audio para evadir formatos combinados problemáticos
+            ydl_opts['format'] = 'bestaudio/best'
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
@@ -114,5 +115,6 @@ def descargar_archivo(chat_id, url, formato):
         bot.send_message(chat_id, f"❌ Fallo crítico en la extracción: {str(e)}")
 
 if __name__ == "__main__":
-    print(">>> Aurora Pro V2 Online - Panel de combate listo para Hammerskull...")
+    print(">>> Aurora Pro V3 Online - Escudos de máximo nivel activados...")
     bot.infinity_polling()
+    
