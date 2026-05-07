@@ -1,0 +1,8 @@
+{
+  "name": "aurora-js-helper",
+  "version": "1.0.0",
+  "description": "Helper para resolver firmas de YT",
+  "main": "index.js",
+  "dependencies": {}
+}
+
