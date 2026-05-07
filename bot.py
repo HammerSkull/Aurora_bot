@@ -40,7 +40,7 @@ def handle_all_messages(message):
 
     # PRIORIDAD 1: Detectar si es un enlace (Instagram, TikTok, FB, YT, etc.)
     # Si empieza con http, va directo a descarga sin buscar opciones
-    if re.match(r'^https?://', text):
+    if re.search(r'^https?://', text):
         bot.send_message(chat_id, "🔗 Enlace detectado. Procesando descarga directa...")
         descargar_video_universal(chat_id, text)
     
