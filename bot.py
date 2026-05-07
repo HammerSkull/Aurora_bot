@@ -4,16 +4,14 @@ import os
 import re
 from telebot import types
 
-# --- CONFIGURACIÓN MAESTRA ---
-# Token oficial de Aurora
+# --- CONFIGURACIÓN ---
 TOKEN = "8764531175:AAFk1mqWcQvQwnZyr5esK4J04zWhHROg_4g" 
 bot = telebot.TeleBot(TOKEN)
 
-# Directorio de operaciones temporales
 if not os.path.exists('downloads'):
     os.makedirs('downloads')
 
-# --- MENÚ DE MANDO (TECLADO PRINCIPAL) ---
+# --- MENÚS ---
 def main_menu():
     markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
     btn_start = types.KeyboardButton('🚀 Start')
@@ -21,100 +19,67 @@ def main_menu():
     markup.add(btn_start, btn_stop)
     return markup
 
-# --- PROTOCOLO DE ARRANQUE ---
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    bot.reply_to(
-        message, 
-        "¡Sistemas Aurora en línea, Hammerskull! 🦾\nTodos los módulos de combate y tecnología están operativos. Envíame un enlace o una búsqueda para comenzar.",
-        reply_markup=main_menu()
-    )
+    bot.reply_to(message, "¡Aurora V5 Online! 🦾\nProtocolo de bypass activado. Pásame ese link rebelde.", reply_markup=main_menu())
 
-# --- RADAR DE ENLACES Y PANEL INTERACTIVO ---
 @bot.message_handler(func=lambda message: True)
 def handle_messages(message):
-    chat_id = message.chat.id
-    text = message.text.strip()
-
-    # Radar de enlaces universal
-    if re.search(r'https?://', text):
-        # Panel táctico: botones que se eliminan tras el uso
+    if re.search(r'https?://', message.text):
         markup = types.InlineKeyboardMarkup(row_width=1)
-        btn_alta = types.InlineKeyboardButton("🎬 Video (Máxima Calidad)", callback_data="vid_alta")
-        btn_baja = types.InlineKeyboardButton("📱 Video (Calidad Estándar)", callback_data="vid_baja")
-        btn_audio = types.InlineKeyboardButton("🎵 Solo Audio (MP3/M4A)", callback_data="audio")
-        markup.add(btn_alta, btn_baja, btn_audio)
-        
-        bot.reply_to(message, "🔗 Enlace detectado por el radar. Selecciona el formato de salida:", reply_markup=markup)
-    
-    # Comandos del menú de teclado
-    elif text == '🚀 Start':
-        bot.send_message(chat_id, "Reiniciando protocolos... Base de datos lista.", reply_markup=main_menu())
-    elif text == '🛑 Detener descarga':
-        bot.send_message(chat_id, "Orden recibida. Interrumpiendo procesos de descarga.")
-    
-    # Lógica de búsqueda directa
-    else:
-        bot.send_message(chat_id, f"🔍 Buscando: '{text}'...\nMostrando las 10 mejores opciones en los servidores.")
+        btn_alta = types.InlineKeyboardButton("🎬 Video Alta", callback_data="vid_alta")
+        btn_audio = types.InlineKeyboardButton("🎵 Solo Audio", callback_data="audio")
+        markup.add(btn_alta, btn_audio)
+        bot.reply_to(message, "🔗 Link detectado. ¿Qué procedemos?", reply_markup=markup)
+    elif message.text == '🚀 Start':
+        bot.send_message(message.chat.id, "Sistemas listos.", reply_markup=main_menu())
 
-# --- MANEJADOR DE BOTONES (AUTO-ELIMINACIÓN) ---
 @bot.callback_query_handler(func=lambda call: True)
 def callback_query(call):
-    chat_id = call.message.chat.id
-    message_id = call.message.message_id
-    formato = call.data
-    
-    # Eliminación de botones para evitar conflictos de señal
-    bot.edit_message_text("⚙️ Procesando solicitud... Accediendo a los servidores de extracción.", chat_id, message_id)
-    
-    # Recuperación del enlace del mensaje original
-    if call.message.reply_to_message and call.message.reply_to_message.text:
-        url = call.message.reply_to_message.text
-        descargar_archivo(chat_id, url, formato)
-    else:
-        bot.send_message(chat_id, "❌ Error de rastreo: No se pudo localizar el enlace original en la memoria.")
+    bot.edit_message_text("⚙️ Aplicando bypass de seguridad... Dame un momento.", call.message.chat.id, call.message.message_id)
+    if call.message.reply_to_message:
+        descargar_archivo(call.message.chat.id, call.message.reply_to_message.text, call.data)
 
-# --- MOTOR DE EXTRACCIÓN CON BLINDAJE PESADO ---
+# --- MOTOR DE DESCARGA V5 (EL "ROMPEMUROS") ---
 def descargar_archivo(chat_id, url, formato):
     try:
-        # Configuración de escudos, cookies y bypass de seguridad extrema
         ydl_opts = {
             'outtmpl': 'downloads/%(title)s.%(ext)s',
             'quiet': True,
-            'noplaylist': True,
-            'cookiefile': 'cookies.txt',  
-            # AJUSTE TÁCTICO: Bloqueo total al cliente web para forzar interfaz móvil pura
-            'extractor_args': {'youtube': ['client=android,ios', 'player_client=android,ios']},
+            'cookiefile': 'cookies.txt',
+            # CAMBIO TÁCTICO: Usamos el cliente 'tv' que es el que menos pide Token PO
+            'extractor_args': {
+                'youtube': {
+                    'player_client': ['tv', 'ios'],
+                    'player_skip': ['web', 'web_music', 'android']
+                }
+            },
+            'nocheckcertificate': True,
+            'ignoreerrors': True,
+            'no_warnings': True
         }
         
-        # Selección de armamento según el formato
         if formato == "vid_alta":
-            ydl_opts['format'] = 'best'
-        elif formato == "vid_baja":
-            ydl_opts['format'] = 'worst'
-        elif formato == "audio":
-            # Forzamos la extracción directa de audio para evadir formatos combinados problemáticos
+            ydl_opts['format'] = 'bestvideo+bestaudio/best'
+        else:
             ydl_opts['format'] = 'bestaudio/best'
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
+            if not info: raise Exception("YouTube bloqueó la conexión.")
+            
             file_path = ydl.prepare_filename(info)
-            
-            # Entrega del material
-            with open(file_path, 'rb') as file:
+            with open(file_path, 'rb') as f:
                 if formato == "audio":
-                    bot.send_audio(chat_id, file, caption=f"✅ Operación exitosa:\n🎵 {info.get('title', 'Audio')}")
+                    bot.send_audio(chat_id, f, caption=f"✅ {info.get('title')}")
                 else:
-                    bot.send_video(chat_id, file, caption=f"✅ Operación exitosa:\n🎬 {info.get('title', 'Video')}")
+                    bot.send_video(chat_id, f, caption=f"✅ {info.get('title')}")
             
-            # Limpieza de rastro en el servidor
-            if os.path.exists(file_path):
-                os.remove(file_path)
+            if os.path.exists(file_path): os.remove(file_path)
                 
     except Exception as e:
-        bot.send_message(chat_id, f"❌ Fallo crítico en la extracción: {str(e)}")
+        bot.send_message(chat_id, f"❌ YouTube sigue bloqueando la IP de Render.\nError: {str(e)}")
 
 if __name__ == "__main__":
-    print(">>> Aurora Pro V3 Online - Escudos de máximo nivel activados...")
+    print(">>> Aurora V5 Online - Hammerskull, vamos por ese bypass.")
     bot.infinity_polling()
-    
