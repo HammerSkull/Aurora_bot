@@ -1,5 +1,5 @@
 services:
-  - type:  web
+  - type: web
     name: Aurora_bot
     env: python
     region: oregon
