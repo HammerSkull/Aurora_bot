@@ -1,154 +1,98 @@
 import asyncio
-import logging
-import yt_dlp
-import os
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, ReplyKeyboardMarkup
+from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 
-# --- CONFIGURACIÓN ---
+# --- CONFIGURACIÓN DIRECTA ---
 TOKEN = "8764531175:AAFk1mqWcQvQwnZyr5esK4J04zWhHROg_4g"
-logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', level=logging.INFO)
 
-# Carpeta de descargas
-DOWNLOAD_PATH = './downloads'
-if not os.path.exists(DOWNLOAD_PATH):
-    os.makedirs(DOWNLOAD_PATH)
+# Función para que los mensajes desaparezcan (se hagan polvito)
+async def borrar_mensaje(context, chat_id, message_id, delay=5):
+    await asyncio.sleep(delay)
+    try:
+        await context.bot.delete_message(chat_id=chat_id, message_id=message_id)
+    except:
+        pass
 
+# --- COMANDO START ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = "✨ *Aurora Music* ✨\n\n¿Qué descargamos hoy, Hammerskull?\n\nDesarrollador: *Hammerskull*"
-    keyboard = [[InlineKeyboardButton("🎵 Música", callback_data='music'), 
-                 InlineKeyboardButton("🎬 Video", callback_data='video')]]
-    await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
+    # Menú de tres rayitas (Teclado inferior)
+    teclado_lateral = [['/start'], ['/quality']]
+    markup_lateral = ReplyKeyboardMarkup(teclado_lateral, resize_keyboard=True)
+    
+    texto_bienvenida = (
+        "✨ *Aurora Download Music* ✨\n"
+        "━━━━━━━━━━━━━━━━━━\n"
+        "👤 *Desarrollador:* Hammerskull\n\n"
+        "¿Qué quieres hacer hoy?"
+    )
+    
+    botones_principales = [
+        [InlineKeyboardButton("🎵 Música", callback_data='menu_música'),
+         InlineKeyboardButton("🎬 Vídeo", callback_data='menu_video')]
+    ]
+    
+    await update.message.reply_text(texto_bienvenida, reply_markup=markup_lateral, parse_mode='Markdown')
+    await update.message.reply_text("Selecciona una opción:", reply_markup=InlineKeyboardMarkup(botones_principales))
 
-async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# --- MANEJO DE BOTONES (MENÚS) ---
+async def botones(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-
-    if query.data == 'music':
-        keyboard = [
-            [InlineKeyboardButton("🎶 MP3 128", callback_data='fmt_mp3_128'), 
-             InlineKeyboardButton("🎶 AAC 192", callback_data='fmt_aac_192')],
-            [InlineKeyboardButton("🎶 MP3 192", callback_data='fmt_mp3_192'), 
-             InlineKeyboardButton("🎶 AAC 256 (💎 TOP)", callback_data='fmt_aac_256')],
-            [InlineKeyboardButton("🎶 MP3 320", callback_data='fmt_mp3_320')]
-        ]
-        await query.edit_message_text("🎧 *Selecciona Calidad de Audio:*", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
     
-    elif query.data == 'video':
-        keyboard = [[InlineKeyboardButton("🎥 MP4 - 720p", callback_data='fmt_vid_720')],
-                    [InlineKeyboardButton("🌟 MP4 - 1080p", callback_data='fmt_vid_1080')]]
-        await query.edit_message_text("📺 *Selecciona Resolución:*", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
+    if query.data == 'menu_música':
+        botones_calidad = [
+            [InlineKeyboardButton("🎧 MP3", callback_data='form_mp3'),
+             InlineKeyboardButton("📻 AAC", callback_data='form_aac')]
+        ]
+        await query.edit_message_text("Elige el formato de audio:", reply_markup=InlineKeyboardMarkup(botones_calidad))
 
-    elif query.data.startswith('fmt_'):
-        _, tipo, calidad = query.data.split('_')
-        context.user_data['tipo'] = tipo
-        context.user_data['calidad'] = calidad
-        await query.edit_message_text(f"✅ *Configurado:* {tipo.upper()} | {calidad}\n\nEscribe el nombre de la rola o pega el link:")
+    elif query.data == 'form_mp3':
+        calidades = [
+            [InlineKeyboardButton("128kbps", callback_data='q_128'),
+             InlineKeyboardButton("192kbps", callback_data='q_192'),
+             InlineKeyboardButton("320kbps", callback_data='q_320')]
+        ]
+        await query.edit_message_text("Calidad MP3:", reply_markup=InlineKeyboardMarkup(calidades))
 
-    elif query.data.startswith('dl_'):
-        video_id = query.data.split('_')[1]
-        tipo = context.user_data.get('tipo', 'mp3')
-        calidad = context.user_data.get('calidad', '320')
-        
-        await query.message.delete()
-        proceso_msg = await context.bot.send_message(chat_id=query.message.chat_id, text="🚀 *Aurora Juggernaut: Procesando descarga...*")
+    elif query.data == 'form_aac':
+        calidades_aac = [
+            [InlineKeyboardButton("192kbps", callback_data='q_192'),
+             InlineKeyboardButton("256kbps", callback_data='q_256')]
+        ]
+        await query.edit_message_text("Calidad AAC:", reply_markup=InlineKeyboardMarkup(calidades_aac))
 
-        file_base = os.path.join(DOWNLOAD_PATH, f"{video_id}")
-        extension = 'mp4' if tipo == 'vid' else tipo
-        file_final = f"{file_base}.{extension}"
-        
-        # CONFIGURACIÓN CON TU ARCHIVO EXACTO DE COOKIES
-        ydl_opts = {
-            'format': 'bestaudio/best' if tipo != 'vid' else 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
-            'outtmpl': file_base,
-            'writethumbnail': True,
-            'quiet': True,
-            'no_warnings': True,
-            'cookiefile': 'youtube_cookies.txt',  # <-- AQUÍ ESTÁ CORREGIDO
-            'postprocessors': [
-                {'key': 'FFmpegExtractAudio', 'preferredcodec': tipo, 'preferredquality': calidad} if tipo != 'vid' else {'key': 'FFmpegVideoConvertor', 'preferedformat': 'mp4'},
-                {'key': 'EmbedThumbnail'},
-                {'key': 'FFmpegMetadata', 'add_metadata': True}
-            ],
-        }
+    elif query.data == 'menu_video':
+        vids = [
+            [InlineKeyboardButton("720p", callback_data='q_720'),
+             InlineKeyboardButton("1080p", callback_data='q_1080')]
+        ]
+        await query.edit_message_text("Calidad de Video:", reply_markup=InlineKeyboardMarkup(vids))
 
-        try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                url_yt = f"https://www.youtube.com/watch?v={video_id}"
-                info = await asyncio.to_thread(ydl.extract_info, url_yt, download=True)
-                titulo = info.get('title', 'Audio')
-                artista = info.get('uploader', 'Aurora')
+    elif query.data.startswith('q_'):
+        valor = query.data.replace('q_', '')
+        msg = await query.edit_message_text(f"✅ Configurado a: {valor}")
+        # Programar que el mensaje se borre solo
+        asyncio.create_task(borrar_mensaje(context, query.message.chat_id, msg.message_id, 4))
 
-            if os.path.exists(file_final):
-                await proceso_msg.edit_text(f"📤 *Enviando: {titulo}...*")
-                with open(file_final, 'rb') as f:
-                    if tipo == 'vid':
-                        await context.bot.send_video(chat_id=query.message.chat_id, video=f, caption=f"🎥 {titulo}")
-                    else:
-                        await context.bot.send_audio(
-                            chat_id=query.message.chat_id,
-                            audio=f,
-                            caption=f"✨ *Aurora Music*\n🎵 {titulo}\n👤 {artista}\n💎 {calidad}kbps",
-                            title=titulo,
-                            performer=artista
-                        )
-                await proceso_msg.delete()
-                os.remove(file_final)
-            else:
-                await proceso_msg.edit_text("❌ Error: El archivo no se generó.")
-            
-        except Exception as e:
-            await proceso_msg.edit_text(f"❌ Error en la descarga. Revisa el log de Render.")
-            print(f"ERROR EN DL_: {e}")
-
-async def search_and_suggest(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_input = update.message.text
-    status_msg = await update.message.reply_text(f"🔍 Analizando: *{user_input}*...")
-
-    # CORRECCIÓN PARA ENLACES DIRECTOS
-    if "youtube.com" in user_input or "youtu.be" in user_input:
-        # AÑADIMOS TU ARCHIVO DE COOKIES AQUÍ TAMBIÉN
-        ydl_opts_link = {'quiet': True, 'extract_flat': True, 'cookiefile': 'youtube_cookies.txt'}
-        try:
-            with yt_dlp.YoutubeDL(ydl_opts_link) as ydl:
-                info = await asyncio.to_thread(ydl.extract_info, user_input, download=False)
-                video_id = info.get('id')
-                title = info.get('title', 'Video detectado')
-                keyboard = [[InlineKeyboardButton(f"📥 Descargar: {title[:30]}", callback_data=f"dl_{video_id}")]]
-                
-                await status_msg.delete()
-                await update.message.reply_text("✅ Enlace detectado. Listo para extraer:", reply_markup=InlineKeyboardMarkup(keyboard))
-                return
-        except Exception as e:
-            await status_msg.edit_text("❌ Error al procesar el enlace directo.")
-            print(f"ERROR ENLACE: {e}")
-            return
-
-    # Si es solo texto, ejecuta la búsqueda. AÑADIMOS TU ARCHIVO DE COOKIES AQUÍ TAMBIÉN.
-    ydl_opts = {'format': 'bestaudio/best', 'quiet': True, 'extract_flat': True, 'cookiefile': 'youtube_cookies.txt'}
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = await asyncio.to_thread(ydl.extract_info, f"ytsearch10:{user_input}", download=False)
-            if 'entries' in info:
-                keyboard = []
-                for entry in info['entries']:
-                    title = (entry.get('title')[:45] + '..') if len(entry.get('title')) > 45 else entry.get('title')
-                    keyboard.append([InlineKeyboardButton(f"📥 {title}", callback_data=f"dl_{entry.get('id')}")])
-                
-                await status_msg.delete()
-                await update.message.reply_text(f"Resultados para: *{user_input}*", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
-    except Exception as e:
-        await status_msg.edit_text("❌ No encontré resultados.")
-        print(f"ERROR BÚSQUEDA: {e}")
+# --- DETECCIÓN DE ENLACES Y BÚSQUEDA ---
+async def procesar_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    msg_texto = update.message.text
+    
+    if "spotify.com" in msg_texto.lower():
+        await update.message.reply_text("🎵 Enlace de Spotify detectado. Extrayendo información...")
+    elif "youtube.com" in msg_texto.lower() or "youtu.be" in msg_texto.lower():
+        await update.message.reply_text("🎬 Enlace de YouTube detectado. Preparando descarga...")
+    else:
+        await update.message.reply_text(f"🔎 Buscando '{msg_texto}'... (Mostrando 10 mejores opciones)")
 
 def main():
     application = Application.builder().token(TOKEN).build()
     
     application.add_handler(CommandHandler("start", start))
-    application.add_handler(CallbackQueryHandler(button_callback))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, search_and_suggest))
+    application.add_handler(CallbackQueryHandler(botones))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, procesar_mensaje))
     
-    print("Aurora Juggernaut activa y patrullando...")
+    print("Aurora Bot iniciado correctamente...")
     application.run_polling()
 
 if __name__ == '__main__':
