@@ -6,7 +6,7 @@ from telebot import types
 
 # --- CONFIGURACIÓN ---
 # Aquí está tu token íntegro para que no haya pierde
-TOKEN = "7867375620:AAH88789H-G87GH878H-G87H" 
+TOKEN = "8764531175:AAFk1mqWcQvQwnZyr5esK4J04zWhHROg_4g" 
 bot = telebot.TeleBot(TOKEN)
 
 # Carpeta para archivos temporales
