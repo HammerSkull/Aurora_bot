@@ -1,5 +1,6 @@
- - type: web
-    name: aurora-v7-oficial
+services:
+  - type: web
+    name: Aurora_bot
     runtime: python
     region: oregon
     plan: free
