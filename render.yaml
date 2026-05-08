@@ -8,4 +8,3 @@ services:
     startCommand: python bot.py
     buildpacks:
       - url: https://github.com/render-examples/python-buildpack
-      - url: https://github.com/render-examples/nodejs-buildpack
