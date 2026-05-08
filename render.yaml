@@ -1,11 +1,21 @@
 services:
   - type: web
-    name: aurora-v7-final
+    name: aurora-v7-oficial
     env: python
     region: oregon
     plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: python bot.py
     buildpacks:
-      - nodejs
-      - python
+      - url: https://github.com/render-examples/python-buildpack
+      - url: https://github.com/render-examples/nodejs-buildpackservices:
+  - type: web
+    name: aurora-v7-oficial
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python bot.py
+    buildpacks:
+      - url: https://github.com/render-examples/python-buildpack
+      - url: https://github.com/render-examples/nodejs-buildpack
